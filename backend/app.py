@@ -123,6 +123,32 @@ def register_user():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/get_all_users', methods=['GET'])
+def get_all_users():
+    """Fetch all registered users from the database."""
+
+    try:
+        # Query all users from the database
+        users = User.query.all()
+
+        # Create a list of user dictionaries
+        all_users = [
+            {
+                'user_id': user.user_id,
+                'username': user.username,
+                'role': user.role.name,  # Assuming role is an Enum
+                'is_active': user.is_active
+            }
+            for user in users
+        ]
+
+        # Return the list of users as JSON
+        return jsonify(all_users), 200
+
+    except Exception as e:
+        return jsonify({'error': 'Failed to retrieve users', 'details': str(e)}), 500
+
+
 @app.route('/api/login', methods=['POST'])
 def login():
     """Login endpoint to authenticate users and return a JWT."""
