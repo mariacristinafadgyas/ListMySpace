@@ -1,7 +1,7 @@
 from data_models import *
 import datetime
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, flash
 from functools import wraps
 import jwt
 import os
@@ -10,8 +10,10 @@ import os
 # Loads and sets the environment variables
 load_dotenv()
 SECRET_KEY = os.getenv('SECRET_KEY')
+FLASH_KEY = os.getenv('FLASH_KEY')
 
 app = Flask(__name__)
+app.secret_key = FLASH_KEY
 
 base_dir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(base_dir, "../data", "list_my_space_db.sqlite")}'
@@ -51,6 +53,74 @@ def token_required(f):
         return f(payload, *args, **kwargs)
 
     return decorated
+
+
+@app.route('/api/register', methods=['POST'])
+def register_user():
+    """Handles the addition of new users to the database."""
+
+    user_data = request.get_json()
+
+    # Extract user details
+    username = user_data.get('username')
+    password = user_data.get('password')
+    role = user_data.get('role').upper()  # Normalize to uppercase - Should be 'OWNER' or 'CUSTOMER'
+    name = user_data.get('name')
+    phone = user_data.get('phone')
+    email = user_data.get('email')
+    company_name = user_data.get('company_name', None)  # Optional for owners
+
+    # Check if the role is valid
+    if role not in ['OWNER', 'CUSTOMER']:
+        return jsonify({'error': 'Invalid role! Choose either OWNER or CUSTOMER'}), 400
+
+    # Check if the username or email already exists
+    if User.query.filter_by(username=username).first():
+        flash('An user with this username already exists.')
+        return jsonify({'error': 'Username already exists!'}), 400
+    if Owner.query.filter_by(email=email).first() or Customer.query.filter_by(email=email).first():
+        flash('An user with this email already exists.')
+        return jsonify({'error': 'Email already exists!'}), 400
+
+    if not username or not password:
+        return jsonify({"error": "Username and password are required."}), 400
+
+    # Create a new user object
+    new_user = User(username=username, role=RoleEnum[role])
+    new_user.set_password(password)  # Hash and set the password
+
+    try:
+        # Save the new user
+        db.session.add(new_user)
+        db.session.flush()  # Flush to get the user_id for the associated Owner/Customer
+
+        if role.upper() == 'OWNER':
+            new_owner = Owner(
+                name=name,
+                phone=phone,
+                email=email,
+                company_name=company_name,
+                user_id=new_user.user_id  # Link to the created user
+            )
+            db.session.add(new_owner)
+
+        elif role.upper() == 'CUSTOMER':
+            new_customer = Customer(
+                name=name,
+                phone=phone,
+                email=email,
+                user_id=new_user.user_id  # Link to the created user
+            )
+            db.session.add(new_customer)
+
+        db.session.commit()  # Commit both user and owner/customer
+        flash(f"{new_user.role.name.capitalize()}: {new_user} successfully created!")
+
+        return jsonify({"message": f'{new_user.role.name.capitalize()}: {new_user} successfully created!'}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/api/login', methods=['POST'])
