@@ -86,7 +86,7 @@ class Image(db.Model):
     __tablename__ = 'images'
 
     image_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    residence_id = db.Column(db.Integer, db.ForeignKey('residences.residence_id'), nullable=False)
+    residence_id = db.Column(db.Integer, db.ForeignKey('residences.residence_id'), nullable=True)
     commercial_id = db.Column(db.Integer, db.ForeignKey('commercials.commercial_id'), nullable=True)
     land_id = db.Column(db.Integer, db.ForeignKey('land.land_id'), nullable=True)
     url = db.Column(db.String(1024), nullable=False)
@@ -116,7 +116,7 @@ class Residence(db.Model):
     latitude = db.Column(db.Float, nullable=False)
     longitude = db.Column(db.Float, nullable=False)
     surface_area = db.Column(db.Float, nullable=False)
-    land_area = db.Column(db.Float, nullable=False)
+    land_area = db.Column(db.Float, nullable=True)
     floor_number = db.Column(db.Integer, nullable=True)
     price = db.Column(db.Integer, nullable=False)
     ad_creation_date = db.Column(db.Date, nullable=False, default=db.func.current_date())
@@ -176,6 +176,7 @@ class Land(db.Model):
     zip_code = db.Column(db.String(10), nullable=False)
     latitude = db.Column(db.Float, nullable=False)
     longitude = db.Column(db.Float, nullable=False)
+    surface_area = db.Column(db.Float, nullable=True, default=0)
     land_area = db.Column(db.Float, nullable=False)
     price = db.Column(db.Integer, nullable=False)
     ad_creation_date = db.Column(db.Date, nullable=False, default=db.func.current_date())

@@ -2,10 +2,12 @@ from data_models import *
 import datetime
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, flash
+from flask_migrate import Migrate
 from functools import wraps
 from get_info import get_lat_long
 import jwt
 import os
+from sqlalchemy import desc, func  # Import func to use ilike
 from werkzeug.utils import secure_filename
 
 
@@ -32,6 +34,8 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
 db.init_app(app)
+
+migrate = Migrate(app, db)
 
 
 def token_required(f):
@@ -387,6 +391,153 @@ def add_property():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/properties', methods=['GET'])
+def get_properties():
+    # Retrieve query parameters
+    ad_action = request.args.get('ad_action')  # sale, rent
+    city = request.args.get('city')
+    state = request.args.get('state')
+    min_price = request.args.get('min_price', type=int)
+    max_price = request.args.get('max_price', type=int)
+    min_surface_area = request.args.get('min_surface_area', type=float)
+    max_surface_area = request.args.get('max_surface_area', type=float)
+    min_land_area = request.args.get('min_land_area', type=float)
+    max_land_area = request.args.get('max_land_area', type=float)
+    features = request.args.getlist('features')  # List of features e.g., ['balcony', 'parking']
+    property_type = request.args.get('property_type')  # Optional: 'residence', 'commercial', or 'land'
+    page = request.args.get('page', 1, type=int)
+
+    # Prepare an empty query list to combine results if property_type is not provided
+    queries = []
+
+    # Determine which property model(s) to query
+    if property_type == 'residence' or property_type is None:
+        residence_query = Residence.query
+        if ad_action:
+            residence_query = residence_query.filter(
+                func.lower(Residence.ad_action) == ad_action.lower())  # Case-insensitive
+        if city:
+            residence_query = residence_query.filter(func.lower(Residence.city) == city.lower())  # Case-insensitive
+        if state:
+            residence_query = residence_query.filter(func.lower(Residence.state) == state.lower())  # Case-insensitive
+        if min_price is not None:
+            residence_query = residence_query.filter(Residence.price >= min_price)
+        if max_price is not None:
+            residence_query = residence_query.filter(Residence.price <= max_price)
+        if min_surface_area is not None:
+            residence_query = residence_query.filter(Residence.surface_area >= min_surface_area)
+        if max_surface_area is not None:
+            residence_query = residence_query.filter(Residence.surface_area <= max_surface_area)
+        # Land area filters apply here if available
+        if min_land_area is not None:
+            residence_query = residence_query.filter(Residence.land_area >= min_land_area)
+        if max_land_area is not None:
+            residence_query = residence_query.filter(Residence.land_area <= max_land_area)
+
+        if features:
+            residence_query = residence_query.join(ResidenceFeature).join(Feature).filter(Feature.name.in_(features))
+
+        residence_query = residence_query.order_by(desc(Residence.ad_creation_date))
+        queries.append(residence_query)
+
+    if property_type == 'commercial' or property_type is None:
+        commercial_query = Commercial.query
+        if ad_action:
+            commercial_query = commercial_query.filter(
+                func.lower(Commercial.ad_action) == ad_action.lower())  # Case-insensitive
+        if city:
+            commercial_query = commercial_query.filter(func.lower(Commercial.city) == city.lower())  # Case-insensitive
+        if state:
+            commercial_query = commercial_query.filter(func.lower(Commercial.state) == state.lower())  # Case-insensitive
+        if min_price is not None:
+            commercial_query = commercial_query.filter(Commercial.price >= min_price)
+        if max_price is not None:
+            commercial_query = commercial_query.filter(Commercial.price <= max_price)
+        if min_surface_area is not None:
+            commercial_query = commercial_query.filter(Commercial.surface_area >= min_surface_area)
+        if max_surface_area is not None:
+            commercial_query = commercial_query.filter(Commercial.surface_area <= max_surface_area)
+        # Land area filters apply here if available
+        if min_land_area is not None:
+            commercial_query = commercial_query.filter(Commercial.land_area >= min_land_area)
+        if max_land_area is not None:
+            commercial_query = commercial_query.filter(Commercial.land_area <= max_land_area)
+
+        if features:
+            commercial_query = commercial_query.join(CommercialFeature).join(Feature).filter(Feature.name.in_(features))
+
+        commercial_query = commercial_query.order_by(desc(Commercial.ad_creation_date))
+        queries.append(commercial_query)
+
+    if property_type == 'land' or property_type is None:
+        land_query = Land.query
+        if ad_action:
+            land_query = land_query.filter(func.lower(Land.ad_action) == ad_action.lower())  # Case-insensitive
+        if city:
+            land_query = land_query.filter(func.lower(Land.city) == city.lower())  # Case-insensitive
+        if state:
+            land_query = land_query.filter(func.lower(Land.state) == state.lower())  # Case-insensitive
+        if min_price is not None:
+            land_query = land_query.filter(Land.price >= min_price)
+        if max_price is not None:
+            land_query = land_query.filter(Land.price <= max_price)
+
+        # Land area filter applies to land properties
+        if min_land_area is not None:
+            land_query = land_query.filter(Land.land_area >= min_land_area)
+        if max_land_area is not None:
+            land_query = land_query.filter(Land.land_area <= max_land_area)
+
+        if features:
+            land_query = land_query.join(LandFeature).join(Feature).filter(Feature.name.in_(features))
+
+        land_query = land_query.order_by(desc(Land.ad_creation_date))
+        queries.append(land_query)
+
+    # Combine queries for all property types if no specific property type is selected
+    if not property_type:
+        from sqlalchemy import union_all
+        combined_query = union_all(*[query.statement for query in queries])
+        query = db.session.query(Residence).from_statement(combined_query).order_by(
+            desc('ad_creation_date'))  # Adjusted sorting for combined results
+    else:
+        query = queries[0]  # If a specific property type is chosen, use its query directly
+
+    # Pagination
+    paginated_result = query.paginate(page=page, per_page=10, error_out=False)
+
+    # Create the response with property data
+    properties = []
+    for property in paginated_result.items:
+        property_data = {
+            'id': getattr(property, 'residence_id',
+                          getattr(property, 'commercial_id', getattr(property, 'land_id', None))),
+            'title': property.ad_title,
+            'description': property.ad_description,
+            'city': property.city,
+            'state': property.state,
+            'price': property.price,
+            # Include surface_area and land_area for all property types
+            'surface_area': property.surface_area if hasattr(property, 'surface_area') else None,
+            'land_area': property.land_area if hasattr(property, 'land_area') else None,
+            'latitude': property.latitude,
+            'longitude': property.longitude,
+            'images': [image.url for image in property.images]
+        }
+        properties.append(property_data)
+
+    # Response structure
+    response = {
+        'properties': properties,
+        'page': paginated_result.page,
+        'pages': paginated_result.pages,
+        'total_properties': paginated_result.total
+    }
+
+    return jsonify(response)
+
 
 # # Creates the tables defined in the models
 # with app.app_context():

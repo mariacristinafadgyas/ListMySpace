@@ -9,7 +9,7 @@ class RoleEnum(Enum):
 
 class ActionEnum(Enum):
     RENT = 'Rent'
-    BUY = 'Buy'
+    SALE = 'Sale'
 
 
 class CommercialCategoryEnum(Enum):
