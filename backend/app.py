@@ -417,11 +417,11 @@ def get_properties():
         residence_query = Residence.query
         if ad_action:
             residence_query = residence_query.filter(
-                func.lower(Residence.ad_action) == ad_action.lower())  # Case-insensitive
+                func.lower(Residence.ad_action) == ad_action.lower())
         if city:
-            residence_query = residence_query.filter(func.lower(Residence.city) == city.lower())  # Case-insensitive
+            residence_query = residence_query.filter(func.lower(Residence.city) == city.lower())
         if state:
-            residence_query = residence_query.filter(func.lower(Residence.state) == state.lower())  # Case-insensitive
+            residence_query = residence_query.filter(func.lower(Residence.state) == state.lower())
         if min_price is not None:
             residence_query = residence_query.filter(Residence.price >= min_price)
         if max_price is not None:
@@ -446,11 +446,11 @@ def get_properties():
         commercial_query = Commercial.query
         if ad_action:
             commercial_query = commercial_query.filter(
-                func.lower(Commercial.ad_action) == ad_action.lower())  # Case-insensitive
+                func.lower(Commercial.ad_action) == ad_action.lower())
         if city:
-            commercial_query = commercial_query.filter(func.lower(Commercial.city) == city.lower())  # Case-insensitive
+            commercial_query = commercial_query.filter(func.lower(Commercial.city) == city.lower())
         if state:
-            commercial_query = commercial_query.filter(func.lower(Commercial.state) == state.lower())  # Case-insensitive
+            commercial_query = commercial_query.filter(func.lower(Commercial.state) == state.lower())
         if min_price is not None:
             commercial_query = commercial_query.filter(Commercial.price >= min_price)
         if max_price is not None:
@@ -474,11 +474,11 @@ def get_properties():
     if property_type == 'land' or property_type is None:
         land_query = Land.query
         if ad_action:
-            land_query = land_query.filter(func.lower(Land.ad_action) == ad_action.lower())  # Case-insensitive
+            land_query = land_query.filter(func.lower(Land.ad_action) == ad_action.lower())
         if city:
-            land_query = land_query.filter(func.lower(Land.city) == city.lower())  # Case-insensitive
+            land_query = land_query.filter(func.lower(Land.city) == city.lower())
         if state:
-            land_query = land_query.filter(func.lower(Land.state) == state.lower())  # Case-insensitive
+            land_query = land_query.filter(func.lower(Land.state) == state.lower())
         if min_price is not None:
             land_query = land_query.filter(Land.price >= min_price)
         if max_price is not None:
@@ -537,6 +537,58 @@ def get_properties():
     }
 
     return jsonify(response)
+
+
+@app.route('/api/delete_property', methods=['DELETE'])
+def delete_property():
+    """
+    Deletes a property from the database (Residence, Commercial, or Land) along with its
+    associated features. The client should provide the property_type and property_id in
+    the request."""
+
+    # Extract property type and ID from the request
+    data = request.json
+    property_type = data.get('property_type')  # Should be either 'residence', 'commercial', or 'land'
+    property_id = data.get('property_id')
+
+    if not property_type or not property_id:
+        return jsonify({"error": "Property type and property ID are required."}), 400
+
+    try:
+        # Depending on the property type, query the relevant table and delete associated features
+        if property_type == 'residence':
+            property_to_delete = Residence.query.get(property_id)
+            if property_to_delete:
+                # Delete associated residence features
+                ResidenceFeature.query.filter_by(residence_id=property_id).delete()
+
+        elif property_type == 'commercial':
+            property_to_delete = Commercial.query.get(property_id)
+            if property_to_delete:
+                # Delete associated commercial features
+                CommercialFeature.query.filter_by(commercial_id=property_id).delete()
+
+        elif property_type == 'land':
+            property_to_delete = Land.query.get(property_id)
+            if property_to_delete:
+                # Delete associated land features
+                LandFeature.query.filter_by(land_id=property_id).delete()
+        else:
+            return jsonify({"error": "Invalid property type."}), 400
+
+        # Check if the property exists
+        if property_to_delete is None:
+            return jsonify({"error": "Property not found."}), 404
+
+        # If found, delete the property
+        db.session.delete(property_to_delete)
+        db.session.commit()
+
+        return jsonify({"message": f"{property_type.capitalize()} with ID {property_id} and its associated features have been deleted."}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 
 # # Creates the tables defined in the models
