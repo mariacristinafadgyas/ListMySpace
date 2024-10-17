@@ -200,6 +200,43 @@ def login():
         return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
 
 
+@app.route('/api/delete_user/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    user = User.query.get(user_id)
+
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
+    try:
+        # If user is an owner, delete associated properties (cascading should handle it)
+        if user.role == RoleEnum.OWNER:
+            owner = Owner.query.filter_by(user_id=user.user_id).first()
+            print(f"Prop to delete: {owner}")
+            if owner:
+                # This should automatically delete associated residences, commercials, and land due to the cascade settings
+                db.session.delete(owner)
+                print(f"Deleted Owner: {owner.name}, ID: {owner.owner_id} and related properties.")
+
+        # If user is a customer, delete associated favorites, messages, reviews, and notifications (cascade takes care)
+        elif user.role == RoleEnum.CUSTOMER:
+            customer = Customer.query.filter_by(user_id=user.user_id).first()
+            if customer:
+                db.session.delete(customer)
+                print(f"Deleted Customer: {customer.name}, ID: {customer.customer_id} and related data.")
+
+        # Finally, delete the user record itself
+        db.session.delete(user)
+        db.session.commit()
+        print(f"Deleted User: {user.username}, ID: {user.user_id}")
+
+        return jsonify({"message": "User and related data successfully deleted"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error occurred: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
 def allowed_file(filename):
     """Helper function to check if the uploaded file is an allowed image type."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS

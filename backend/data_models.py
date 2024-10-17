@@ -50,10 +50,13 @@ class Owner(db.Model):
     # Foreign key linking to the User table
     user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False)
 
-    # Relationships with properties
-    residences = db.relationship('Residence', backref='owner', lazy='dynamic')
-    commercials = db.relationship('Commercial', backref='owner', lazy='dynamic')
-    land = db.relationship('Land', backref='owner', lazy='dynamic')
+    # Relationships with properties (cascade deletes)
+    residences = db.relationship('Residence', backref='owner', lazy='dynamic', cascade="all, delete-orphan")
+    commercials = db.relationship('Commercial', backref='owner', lazy='dynamic', cascade="all, delete-orphan")
+    land = db.relationship('Land', backref='owner', lazy='dynamic', cascade="all, delete-orphan")
+
+    # Relationship with customer
+    messages = db.relationship('Message', backref='owner_customer', cascade="all, delete-orphan")
 
     def __repr__(self):
         """Returns a string representation of the Property Owner object."""
@@ -73,6 +76,12 @@ class Customer(db.Model):
 
     # Foreign key linking to the User table
     user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False)
+
+    # Relationships (cascade deletes)
+    messages = db.relationship('Message', backref='customer_owner', cascade="all, delete-orphan")
+    reviews = db.relationship('Review', backref='customer', cascade="all, delete-orphan")
+    favorites = db.relationship('Favorite', backref='customer', cascade="all, delete-orphan")
+    notifications = db.relationship('Notification', backref='customer', cascade="all, delete-orphan")
 
     def __repr__(self):
         """Returns a string representation of the Customer object."""
@@ -236,6 +245,7 @@ class Message(db.Model):
     sender_type = db.Column(db.String(50), nullable=False)  # 'customer' or 'owner'
     content = db.Column(db.Text, nullable=False)
     timestamp = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    # Backrefs for OWNER AND CUSTOMER
     customer = db.relationship('Customer', backref='messages_from_customer', lazy=True)
     owner = db.relationship('Owner', backref='messages_from_owner', lazy=True)
 
