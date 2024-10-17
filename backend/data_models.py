@@ -56,7 +56,7 @@ class Owner(db.Model):
     land = db.relationship('Land', backref='owner', lazy='dynamic', cascade="all, delete-orphan")
 
     # Relationship with customer
-    messages = db.relationship('Message', backref='owner_customer', cascade="all, delete-orphan")
+    # messages = db.relationship('Message', backref='owner_customer', cascade="all, delete-orphan")
 
     def __repr__(self):
         """Returns a string representation of the Property Owner object."""
@@ -78,7 +78,7 @@ class Customer(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False)
 
     # Relationships (cascade deletes)
-    messages = db.relationship('Message', backref='customer_owner', cascade="all, delete-orphan")
+    # messages = db.relationship('Message', backref='customer_owner', cascade="all, delete-orphan")
     reviews = db.relationship('Review', backref='customer', cascade="all, delete-orphan")
     favorites = db.relationship('Favorite', backref='customer', cascade="all, delete-orphan")
     notifications = db.relationship('Notification', backref='customer', cascade="all, delete-orphan")

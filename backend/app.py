@@ -237,6 +237,41 @@ def delete_user(user_id):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/properties/<int:owner_id>', methods=['GET'])
+def list_owner_properties(owner_id):
+    """Allows an owner to list all their properties (residential, commercial, and land)."""
+
+    try:
+        owner = Owner.query.get_or_404(owner_id)  # This will raise 404 if the owner doesn't exist
+
+        # Fetch all property types
+        residences = Residence.query.filter_by(owner_id=owner_id).all()
+        commercials = Commercial.query.filter_by(owner_id=owner_id).all()
+        land = Land.query.filter_by(owner_id=owner_id).all()
+
+        # Ensured that the 'owner' can be serialized; if not, convert to a dictionary or use a serialize method.
+        owner_data = {
+            "id": owner.owner_id,
+            "name": owner.name,
+            "email": owner.email,
+            "phone": owner.phone,
+            "company_name": owner.company_name
+        }
+
+        # Prepare response data
+        properties = {
+            "owner": owner_data,
+            "residences": [{"id": res.residence_id, "title": res.ad_title} for res in residences],
+            "commercials": [{"id": com.commercial_id, "title": com.ad_title} for com in commercials],
+            "land": [{"id": la.land_id, "title": la.ad_title} for la in land]
+        }
+
+        return jsonify(properties), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 def allowed_file(filename):
     """Helper function to check if the uploaded file is an allowed image type."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -265,6 +300,12 @@ def add_property():
 
     # Extract common property fields
     owner_id = user_data.get('owner_id')
+
+    # Check if owner_id exists in the database
+    owner = Owner.query.get(owner_id)
+    if not owner:
+        return jsonify({"error": "Invalid owner ID. The specified owner does not exist."}), 400
+
     ad_action = user_data.get('ad_action')
     ad_title = user_data.get('ad_title')
     ad_description = user_data.get('ad_description')
