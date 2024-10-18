@@ -669,10 +669,74 @@ def delete_property():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/properties/<string:property_type>/<int:property_id>', methods=['PUT'])
+def update_property(property_type, property_id):
+    try:
+        # Check if the request contains multipart/form-data
+        if request.content_type.startswith('multipart/form-data'):
+            # Extract data from form (similar to how it works in the POST route)
+            data = request.form.to_dict()
+            owner_id = data.get('owner_id')
+        else:
+            # Otherwise, handle as a regular JSON request
+            data = request.json
+            owner_id = data.get('owner_id')
+
+        # Ensure owner_id exists
+        if not owner_id:
+            return jsonify({"error": "Owner ID is required"}), 400
+
+        # Determine the property type
+        if property_type == 'residence':
+            property_obj = Residence.query.get_or_404(property_id)
+        elif property_type == 'commercial':
+            property_obj = Commercial.query.get_or_404(property_id)
+        elif property_type == 'land':
+            property_obj = Land.query.get_or_404(property_id)
+        else:
+            return jsonify({"error": "Invalid property type"}), 400
+
+        # Check if the owner is the same
+        if property_obj.owner_id != int(owner_id):
+            return jsonify({"error": "Unauthorized action"}), 403
+
+        # Update fields based on incoming data
+        for key, value in data.items():
+            if hasattr(property_obj, key):
+                setattr(property_obj, key, value)
+
+        # If updating images is required, handle file uploads (optional)
+        if request.files:
+            images = request.files.getlist('images')
+            for image in images:
+                if image and allowed_file(image.filename):
+                    filename = secure_filename(image.filename)
+                    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    image.save(filepath)
+                    # Handle saving or updating the image in the database
+                    new_image = Image(url=filepath)
+                    # Link the image to the correct property type
+                    if property_type == 'residence':
+                        new_image.residence_id = property_obj.residence_id
+                    elif property_type == 'commercial':
+                        new_image.commercial_id = property_obj.commercial_id
+                    elif property_type == 'land':
+                        new_image.land_id = property_obj.land_id
+                    db.session.add(new_image)
+
+        db.session.commit()
+
+        return jsonify({"message": f"{property_type.capitalize()} property updated successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
 # # Creates the tables defined in the models
 # with app.app_context():
 #     db.create_all()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5001, debug=True)
