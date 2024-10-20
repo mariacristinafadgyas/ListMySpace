@@ -213,7 +213,8 @@ def delete_user(user_id):
             owner = Owner.query.filter_by(user_id=user.user_id).first()
             print(f"Prop to delete: {owner}")
             if owner:
-                # This should automatically delete associated residences, commercials, and land due to the cascade settings
+                # Automatic deletion of the associated residences, businesses
+                # and properties based on the cascade settings
                 db.session.delete(owner)
                 print(f"Deleted Owner: {owner.name}, ID: {owner.owner_id} and related properties.")
 
@@ -269,6 +270,43 @@ def list_owner_properties(owner_id):
         return jsonify(properties), 200
 
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/users/<int:user_id>', methods=['PUT'])
+def update_user(user_id):
+    # Get the user by ID
+    user = User.query.get(user_id)
+
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Parse the request data
+    data = request.get_json()
+
+    # Update the user fields (only if provided)
+    if 'username' in data:
+        user.username = data['username']
+
+    if 'password' in data:
+        user.set_password(data['password'])  # Use the set_password method to hash the password
+
+    if 'role' in data:
+        # Check if the role is valid
+        if data['role'] in RoleEnum.value2member_map_:
+            user.role = RoleEnum(data['role'])
+        else:
+            return jsonify({"error": "Invalid role"}), 400
+
+    if 'is_active' in data:
+        user.is_active = data['is_active']
+
+    try:
+        # Save the changes to the database
+        db.session.commit()
+        return jsonify({"message": "User updated successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
 
@@ -662,7 +700,8 @@ def delete_property():
         db.session.delete(property_to_delete)
         db.session.commit()
 
-        return jsonify({"message": f"{property_type.capitalize()} with ID {property_id} and its associated features have been deleted."}), 200
+        return jsonify({"message": f"{property_type.capitalize()} with ID {property_id} and"
+                                   f" its associated features have been deleted."}), 200
 
     except Exception as e:
         db.session.rollback()
