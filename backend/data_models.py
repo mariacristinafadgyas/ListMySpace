@@ -240,8 +240,8 @@ class Message(db.Model):
     __tablename__ = 'messages'
 
     message_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    customer_id = db.Column(db.Integer, db.ForeignKey('customers.customer_id'), nullable=False)
-    owner_id = db.Column(db.Integer, db.ForeignKey('owners.owner_id'), nullable=False)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customers.customer_id'), nullable=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('owners.owner_id'), nullable=True)
     sender_type = db.Column(db.String(50), nullable=False)  # 'customer' or 'owner'
     content = db.Column(db.Text, nullable=False)
     timestamp = db.Column(db.DateTime, nullable=False, default=db.func.now())

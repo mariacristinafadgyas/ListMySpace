@@ -3,8 +3,10 @@ import datetime
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, flash
 from flask_migrate import Migrate
+from flask_sock import Sock
 from functools import wraps
 from get_info import get_lat_long
+import json
 import jwt
 import os
 from sqlalchemy import desc, func  # Import func to use ilike
@@ -18,6 +20,11 @@ FLASH_KEY = os.getenv('FLASH_KEY')
 
 app = Flask(__name__)
 app.secret_key = FLASH_KEY
+
+sock = Sock(app)
+
+# Store connected users with their WebSocket connections
+connected_users = {}
 
 base_dir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(base_dir, "../data", "list_my_space_db.sqlite")}'
@@ -772,10 +779,95 @@ def update_property(property_type, property_id):
         return jsonify({"error": str(e)}), 500
 
 
+@sock.route('/api/chat/<user_id>')
+def chat(ws, user_id):
+    """
+    WebSocket route for real-time chat communication between users (Owners and Customers).
+    This route allows users (either Owners or Customers) to send and receive messages in real-time.
+
+    Parameters:
+    - ws: The WebSocket connection object.
+    - user_id: The ID of the user initiating the WebSocket connection.
+    """
+
+    # Fetch the user from the database (can be an owner or a customer)
+    user = User.query.filter_by(user_id=user_id).first()
+
+    if not user:
+        ws.send(json.dumps({"error": "User not found"}))
+        return
+
+    # Store the WebSocket connection for the user
+    connected_users[user_id] = ws
+
+    try:
+        while True:
+            # Wait for a message from this user
+            message = ws.receive()
+
+            if message:
+                # Parse the message
+                message_data = json.loads(message)
+                recipient_id = message_data['to']
+                text = message_data['text']
+
+                # Check if recipient exists in the database
+                recipient_user = User.query.filter_by(user_id=recipient_id).first()
+                if not recipient_user:
+                    ws.send(json.dumps({"error": f"Recipient with ID {recipient_id} not found."}))
+                    continue
+
+                # Determine sender and recipient roles (Owner or Customer)
+                if user.customer:
+                    sender_role = 'customer'
+                    customer_id = user.customer.customer_id
+                    owner_id = recipient_user.owner.owner_id if recipient_user.owner else None
+                elif user.owner:
+                    sender_role = 'owner'
+                    owner_id = user.owner.owner_id
+                    customer_id = recipient_user.customer.customer_id if recipient_user.customer else None
+                else:
+                    ws.send(json.dumps({"error": "Invalid sender role."}))
+                    continue
+
+                if not (customer_id or owner_id):
+                    ws.send(json.dumps({"error": "Invalid recipient role."}))
+                    continue
+
+                # Save the message to the database
+                new_message = Message(
+                    customer_id=customer_id,
+                    owner_id=owner_id,
+                    sender_type=sender_role,
+                    content=text
+                )
+                db.session.add(new_message)
+                db.session.commit()
+
+                # Check if the recipient is connected via WebSocket
+                if recipient_id in connected_users:
+                    # Send the message to the recipient
+                    connected_users[recipient_id].send(json.dumps({
+                        "from": user_id,
+                        "text": text,
+                        "timestamp": new_message.timestamp.isoformat()
+                    }))
+                else:
+                    # Notify the sender that the recipient is not connected
+                    ws.send(json.dumps({"error": f"User {recipient_id} is not connected."}))
+
+    except Exception as e:
+        print(f"Error: {e}")
+    finally:
+        # Remove the user from connected_users when the connection closes
+        if user_id in connected_users:
+            del connected_users[user_id]
+
+
 # # Creates the tables defined in the models
 # with app.app_context():
 #     db.create_all()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
