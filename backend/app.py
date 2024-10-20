@@ -74,7 +74,38 @@ def token_required(f):
         except jwt.InvalidTokenError:
             return jsonify({'message': 'Invalid token'}), 401
 
+        # Check if the user role is passed in the payload (assuming it is included during login)
+        user_role = payload.get('role')
+        if not user_role:
+            return jsonify({'message': 'User role not found in token'}), 403
+
         # Pass the payload to the route function
+        return f(payload, *args, **kwargs)
+
+    return decorated
+
+
+def admin_required(f):
+    """Middleware to protect admin routes."""
+
+    @wraps(f)
+    def decorated(payload, *args, **kwargs):
+        user_role = payload.get('role')
+        if user_role != 'ADMIN':
+            return jsonify({'message': 'Access forbidden: Admins only'}), 403
+        return f(payload, *args, **kwargs)
+
+    return decorated
+
+
+def owner_or_admin_required(f):
+    """Middleware to protect routes for owners or admins."""
+
+    @wraps(f)
+    def decorated(payload, *args, **kwargs):
+        user_role = payload.get('role')
+        if user_role not in ['OWNER', 'ADMIN']:
+            return jsonify({'message': 'Access forbidden: Owners or Admins only'}), 403
         return f(payload, *args, **kwargs)
 
     return decorated
@@ -149,7 +180,9 @@ def register_user():
 
 
 @app.route('/api/get_all_users', methods=['GET'])
-def get_all_users():
+@token_required
+@admin_required
+def get_all_users(payload):
     """Fetch all registered users from the database."""
 
     try:
@@ -208,7 +241,9 @@ def login():
 
 
 @app.route('/api/delete_user/<int:user_id>', methods=['DELETE'])
-def delete_user(user_id):
+@token_required
+@admin_required
+def delete_user(payload, user_id):
     user = User.query.get(user_id)
 
     if not user:
@@ -246,7 +281,8 @@ def delete_user(user_id):
 
 
 @app.route('/api/properties/<int:owner_id>', methods=['GET'])
-def list_owner_properties(owner_id):
+@token_required
+def list_owner_properties(payload, owner_id):
     """Allows an owner to list all their properties (residential, commercial, and land)."""
 
     try:
@@ -281,7 +317,8 @@ def list_owner_properties(owner_id):
 
 
 @app.route('/api/users/<int:user_id>', methods=['PUT'])
-def update_user(user_id):
+@token_required
+def update_user(payload, user_id):
     # Get the user by ID
     user = User.query.get(user_id)
 
@@ -323,7 +360,9 @@ def allowed_file(filename):
 
 
 @app.route('/api/properties', methods=['POST'])
-def add_property():
+@token_required
+@owner_or_admin_required
+def add_property(payload):
     """Allows an owner to add a new property (residential, commercial, or land) with
     up to 10 images and optional features."""
 
@@ -663,7 +702,9 @@ def get_properties():
 
 
 @app.route('/api/delete_property', methods=['DELETE'])
-def delete_property():
+@token_required
+@owner_or_admin_required
+def delete_property(payload):
     """
     Deletes a property from the database (Residence, Commercial, or Land) along with its
     associated features. The client should provide the property_type and property_id in
@@ -716,7 +757,9 @@ def delete_property():
 
 
 @app.route('/api/properties/<string:property_type>/<int:property_id>', methods=['PUT'])
-def update_property(property_type, property_id):
+@token_required
+@owner_or_admin_required
+def update_property(payload, property_type, property_id):
     try:
         # Check if the request contains multipart/form-data
         if request.content_type.startswith('multipart/form-data'):
@@ -780,7 +823,8 @@ def update_property(property_type, property_id):
 
 
 @sock.route('/api/chat/<user_id>')
-def chat(ws, user_id):
+@token_required
+def chat(payload, ws, user_id):
     """
     WebSocket route for real-time chat communication between users (Owners and Customers).
     This route allows users (either Owners or Customers) to send and receive messages in real-time.
