@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request, flash
 from flask_migrate import Migrate
 from flask_sock import Sock
+from flask_swagger_ui import get_swaggerui_blueprint
 from functools import wraps
 from get_info import get_lat_long
 import json
@@ -133,10 +134,10 @@ def register_user():
     # Check if the username or email already exists
     if User.query.filter_by(username=username).first():
         flash('An user with this username already exists.')
-        return jsonify({'error': 'Username already exists!'}), 400
+        return jsonify({'error': 'Username already exists!'}), 404
     if Owner.query.filter_by(email=email).first() or Customer.query.filter_by(email=email).first():
         flash('An user with this email already exists.')
-        return jsonify({'error': 'Email already exists!'}), 400
+        return jsonify({'error': 'Email already exists!'}), 404
 
     if not username or not password:
         return jsonify({"error": "Username and password are required."}), 400
@@ -911,6 +912,19 @@ def chat(payload, ws, user_id):
 # # Creates the tables defined in the models
 # with app.app_context():
 #     db.create_all()
+
+
+SWAGGER_URL = "/api/docs"  # swagger endpoint e.g. HTTP://localhost:5000/api/docs
+API_URL = "/static/swagger_data.json"
+
+swagger_ui_blueprint = get_swaggerui_blueprint(
+    SWAGGER_URL,
+    API_URL,
+    config={
+        'app_name': 'ThronesAPI'
+    }
+)
+app.register_blueprint(swagger_ui_blueprint, url_prefix=SWAGGER_URL)
 
 
 if __name__ == "__main__":

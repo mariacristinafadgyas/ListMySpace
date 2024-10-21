@@ -1,0 +1,386 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "This is the API documentation for a property listing application.",
+    "version": "1.0.0",
+    "title": "List My Space API",
+    "contact": {
+      "name": "API Support",
+      "email": "fadgyas.maria@yahoo.com"
+    }
+  },
+  "host": "localhost:5000",
+  "basePath": "/api",
+  "schemes": [
+    "http"
+  ],
+  "paths": {
+    "/register": {
+      "post": {
+        "summary": "Register a new user",
+        "description": "Handles the addition of new users to the database.",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "User registration details",
+            "schema": {
+              "type": "object",
+              "required": [
+                "username",
+                "password",
+                "role",
+                "name",
+                "phone",
+                "email"
+              ],
+              "properties": {
+                "username": {
+                  "type": "string",
+                  "example": "Georgia",
+                },
+                "password": {
+                  "type": "string",
+                  "example": "password123"
+                },
+                "role": {
+                  "type": "string",
+                  "enum": ["OWNER", "CUSTOMER"]
+                },
+                "name": {
+                  "type": "string",
+                  "example": "Georgia Atkins"
+                },
+                "phone": {
+                  "type": "string",
+                  "example": "015154487665"
+                },
+                "email": {
+                  "type": "string",
+                  "example": "georgia.atkins@gmail.com"
+                },
+                "company_name": {
+                  "type": "string",
+                  "description": "Optional for owners",
+                  "example": "Georgia Rentals"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "User successfully created",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "example": "Owner: ..... successfully created!"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string",
+                  "example": "Username already exists!"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string",
+                  "example": "Database connection failed"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/get_all_users": {
+      "get": {
+        "summary": "Get all users",
+        "description": "Fetch all registered users from the database (Admin access required).",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of all users"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Access forbidden"
+          }
+        }
+      }
+    },
+    "/login": {
+      "post": {
+        "summary": "Login",
+        "description": "Authenticates a user and returns a JWT token.",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "credentials",
+            "description": "User login credentials",
+            "schema": {
+              "type": "object",
+              "required": [
+                "username",
+                "password"
+              ],
+              "properties": {
+                "username": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Login successful, JWT token returned"
+          },
+          "400": {
+            "description": "Username and password required"
+          },
+          "401": {
+            "description": "Invalid credentials"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/delete_user/{user_id}": {
+      "delete": {
+        "summary": "Delete a user",
+        "description": "Deletes a user and their associated data (Admin access required).",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "description": "ID of the user to delete"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User and related data successfully deleted"
+          },
+          "404": {
+            "description": "User not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/properties/{owner_id}": {
+      "get": {
+        "summary": "List owner's properties",
+        "description": "Fetches all properties (residential, commercial, and land) owned by a specific owner.",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "owner_id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "description": "ID of the owner"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of properties owned by the user"
+          },
+          "404": {
+            "description": "Owner not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/users/{user_id}": {
+      "put": {
+        "summary": "Update user information",
+        "description": "Updates the information of a specific user (JWT token required).",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "description": "ID of the user to update"
+          },
+          {
+            "in": "body",
+            "name": "user",
+            "description": "Updated user information",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "username": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string",
+                  "enum": ["OWNER", "CUSTOMER"]
+                },
+                "is_active": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User updated successfully"
+          },
+          "404": {
+            "description": "User not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/properties": {
+      "post": {
+        "summary": "Add a new property",
+        "description": "Allows an owner to add a new property (residential, commercial, or land) with up to 10 images.",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "formData",
+            "name": "images",
+            "type": "file",
+            "description": "Up to 10 property images",
+            "required": true
+          },
+          {
+            "in": "formData",
+            "name": "property_data",
+            "type": "object",
+            "description": "Property details",
+            "schema": {
+              "type": "object",
+              "required": ["owner_id", "ad_title", "ad_description", "property_type", "price", "ad_action"],
+              "properties": {
+                "owner_id": {
+                  "type": "integer"
+                },
+                "property_type": {
+                  "type": "string",
+                  "enum": ["residence", "commercial", "land"]
+                },
+                "ad_title": {
+                  "type": "string"
+                },
+                "ad_description": {
+                  "type": "string"
+                },
+                "street_address": {
+                  "type": "string"
+                },
+                "city": {
+                  "type": "string"
+                },
+                "state": {
+                  "type": "string"
+                },
+                "zip_code": {
+                  "type": "string"
+                },
+                "price": {
+                  "type": "number"
+                },
+                "features": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Property added successfully"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "Bearer": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "JWT token for authorization, e.g., 'Bearer {token}'"
+    }
+  }
+}
