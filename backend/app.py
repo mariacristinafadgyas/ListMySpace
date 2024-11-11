@@ -93,7 +93,7 @@ def admin_required(f):
     def decorated(payload, *args, **kwargs):
         user_role = payload.get('role')
         if user_role != 'ADMIN':
-            return jsonify({'message': 'Access forbidden: Admins only'}), 403
+            return jsonify({'message': 'Access forbidden: Admins only!'}), 403
         return f(payload, *args, **kwargs)
 
     return decorated
@@ -320,6 +320,13 @@ def list_owner_properties(payload, owner_id):
 @app.route('/api/users/<int:user_id>', methods=['PUT'])
 @token_required
 def update_user(payload, user_id):
+    # Extract the user ID from the token's payload
+    token_user_id = payload.get('user_id')
+
+    # Ensure that the token belongs to the user being updated
+    if token_user_id != user_id:
+        return jsonify({"error": "You are not authorized to update this user"}), 403
+
     # Get the user by ID
     user = User.query.get(user_id)
 

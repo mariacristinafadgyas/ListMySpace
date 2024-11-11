@@ -37,7 +37,7 @@
               "properties": {
                 "username": {
                   "type": "string",
-                  "example": "Georgia",
+                  "example": "Georgia"
                 },
                 "password": {
                   "type": "string",
@@ -151,10 +151,12 @@
               ],
               "properties": {
                 "username": {
-                  "type": "string"
+                  "type": "string",
+                  "example": "Benny"
                 },
                 "password": {
-                  "type": "string"
+                  "type": "string",
+                  "example": "ben123"
                 }
               }
             }
@@ -212,7 +214,7 @@
     "/properties/{owner_id}": {
       "get": {
         "summary": "List owner's properties",
-        "description": "Fetches all properties (residential, commercial, and land) owned by a specific owner.",
+        "description": "Fetches all properties (residential, commercial, and land) owned by a specific owner. (JWT token required)",
         "parameters": [
           {
             "name": "Authorization",
@@ -245,7 +247,7 @@
     "/users/{user_id}": {
       "put": {
         "summary": "Update user information",
-        "description": "Updates the information of a specific user (JWT token required).",
+        "description": "Updates the information of a specific user (JWT token required). This endpoint checks if the user ID in the JWT token matches the user ID in the path parameter to ensure that users can only update their own data. If the user ID from the token does not match, the request is denied with a 403 Forbidden error.",
         "parameters": [
           {
             "name": "Authorization",
@@ -269,10 +271,12 @@
               "type": "object",
               "properties": {
                 "username": {
-                  "type": "string"
+                  "type": "string",
+                  "example": "JohnDoe1"
                 },
                 "password": {
-                  "type": "string"
+                  "type": "string",
+                  "example": "pass123"
                 },
                 "role": {
                   "type": "string",
@@ -289,8 +293,14 @@
           "200": {
             "description": "User updated successfully"
           },
+          "403": {
+            "description": "You are not authorized to update this user"
+          },
           "404": {
             "description": "User not found"
+          },
+          "400": {
+            "description": "Invalid role or data format"
           },
           "500": {
             "description": "Internal server error"
