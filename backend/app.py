@@ -2,6 +2,7 @@ from data_models import *
 import datetime
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, flash
+from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_sock import Sock
 from flask_swagger_ui import get_swaggerui_blueprint
@@ -20,6 +21,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 FLASH_KEY = os.getenv('FLASH_KEY')
 
 app = Flask(__name__)
+CORS(app) # Allows all domains to access this API
 app.secret_key = FLASH_KEY
 
 sock = Sock(app)
@@ -133,10 +135,10 @@ def register_user():
 
     # Check if the username or email already exists
     if User.query.filter_by(username=username).first():
-        flash('An user with this username already exists.')
+        # flash('An user with this username already exists.')
         return jsonify({'error': 'Username already exists!'}), 404
     if Owner.query.filter_by(email=email).first() or Customer.query.filter_by(email=email).first():
-        flash('An user with this email already exists.')
+        # flash('An user with this email already exists.')
         return jsonify({'error': 'Email already exists!'}), 404
 
     if not username or not password:
@@ -668,10 +670,14 @@ def get_properties():
 
     # Combine queries for all property types if no specific property type is selected
     if not property_type:
-        from sqlalchemy import union_all
-        combined_query = union_all(*[query.statement for query in queries])
-        query = db.session.query(Residence).from_statement(combined_query).order_by(
-            desc('ad_creation_date'))  # Adjusted sorting for combined results
+        from sqlalchemy import select, union_all
+        # Remove ORDER BY from individual subqueries
+        stripped_queries = [query.order_by(None).statement for query in queries]
+        combined_query = union_all(*stripped_queries)
+
+        # Create a subquery and wrap it for further query modifications
+        subquery = combined_query.subquery()
+        query = db.session.query(subquery).order_by(desc(subquery.c.ad_creation_date))
     else:
         query = queries[0]  # If a specific property type is chosen, use its query directly
 
